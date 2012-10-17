@@ -213,10 +213,14 @@ function way_function (way, numberOfNodesInWay)
   return 1
 end
 
--- These are wrappers to parse vectors of nodes and ways and thus to speed up any tracing JIT
+function turn_function (angle)
+    return 0
+end
 
+-- These are wrappers to parse vectors of nodes and ways and thus to speed up any tracing JIT
 function node_vector_function(vector)
  for v in vector.nodes do
   node_function(v)
  end
 end
+

@@ -48,6 +48,14 @@
 #include "../DataStructures/TurnInstructions.h"
 #include "../Util/BaseConfiguration.h"
 
+extern "C" {
+#include <lua.h>
+#include <lauxlib.h>
+#include <lualib.h>
+}
+#include <luabind/luabind.hpp>
+
+
 class EdgeBasedGraphFactory {
 private:
     struct _NodeBasedEdgeData {
@@ -134,11 +142,11 @@ public:
     template< class InputEdgeT >
     explicit EdgeBasedGraphFactory(int nodes, std::vector<InputEdgeT> & inputEdges, std::vector<NodeID> & _bollardNodes, std::vector<NodeID> & trafficLights, std::vector<_Restriction> & inputRestrictions, std::vector<NodeInfo> & nI, SpeedProfileProperties speedProfile);
 
-    void Run(const char * originalEdgeDataFilename);
+    void Run(const char * originalEdgeDataFilename, lua_State *myLuaState);
     void GetEdgeBasedEdges( DeallocatingVector< EdgeBasedEdge >& edges );
     void GetEdgeBasedNodes( DeallocatingVector< EdgeBasedNode> & nodes);
     void GetOriginalEdgeData( std::vector< OriginalEdgeData> & originalEdgeData);
-    short AnalyzeTurn(const NodeID u, const NodeID v, const NodeID w) const;
+    short AnalyzeTurn(lua_State *myLuaState, const NodeID u, const NodeID v, const NodeID w, unsigned& penalty) const;
     unsigned GetNumberOfNodes() const;
 };
 
