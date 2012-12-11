@@ -23,10 +23,10 @@ Feature: Turn Penalties
 
 		When I route I should get
 		 | from | to | route | time    | distance |
-		 | e    | f  | xe,xf | 61s +-2 | 242m +-1 |
-		 | e    | g  | xe,xg | 47s +-2 | 200m +-1 |
-		 | e    | h  | xe,xh | 53s +-2 | 242m +-1 |
+		 | e    | f  | xe,xf | 71s +-2 | 242m +-1 |
+		 | e    | g  | xe,xg | 51s +-2 | 200m +-1 |
+		 | e    | h  | xe,xh | 54s +-2 | 242m +-1 |
 		 | e    | a  | xe,xa | 43s +-2 | 200m +-1 |
-		 | e    | b  | xe,xb | 54s +-2 | 242m +-1 |
-		 | e    | c  | xe,xc | 51s +-2 | 200m +-1 |
-		 | e    | d  | xe,xd | 71s +-2 | 242m +-1 |
+		 | e    | b  | xe,xb | 53s +-2 | 242m +-1 |
+		 | e    | c  | xe,xc | 47s +-2 | 200m +-1 |
+		 | e    | d  | xe,xd | 61s +-2 | 242m +-1 |
