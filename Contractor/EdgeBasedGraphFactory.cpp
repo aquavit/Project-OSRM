@@ -281,16 +281,16 @@ void EdgeBasedGraphFactory::Run(const char * originalEdgeDataFilename, lua_State
                             distance += speedProfile.trafficSignalPenalty;
                         }
                         
-                        unsigned penalty = 0;
-						short turnInstruction = AnalyzeTurn(myLuaState, u, v, w, penalty);
+                        unsigned turnPenalty = 0;
+                        short turnInstruction = AnalyzeTurn(u, v, w, turnPenalty, myLuaState);
                         //if(turnInstruction == TurnInstructions.UTurn)
                         //    distance += speedProfile.uTurnPenalty;
 //                        if(!edgeData1.isAccessRestricted && edgeData2.isAccessRestricted) {
 //                            distance += TurnInstructions.AccessRestrictionPenalty;
 //                            turnInstruction |= TurnInstructions.AccessRestrictionFlag;
 //                        }
-                        distance += penalty;
-						
+                        distance += turnPenalty;
+
 
                         //distance += heightPenalty;
                         //distance += ComputeTurnPenalty(u, v, w);
@@ -337,15 +337,14 @@ void EdgeBasedGraphFactory::Run(const char * originalEdgeDataFilename, lua_State
     INFO("Generated " << edgeBasedNodes.size() << " edge based nodes");
 }
 
-short EdgeBasedGraphFactory::AnalyzeTurn(lua_State *myLuaState, const NodeID u, const NodeID v, const NodeID w, unsigned& penalty) const {
+short EdgeBasedGraphFactory::AnalyzeTurn(const NodeID u, const NodeID v, const NodeID w, unsigned& penalty, lua_State *myLuaState) const {
     double angle = GetAngleBetweenTwoEdges(inputNodeInfoList[u], inputNodeInfoList[v], inputNodeInfoList[w]);
 	
 	try {
         //call lua profile to compute turn penalty
         penalty = luabind::call_function<int>( myLuaState, "turn_function", 180-angle );
-    } catch (const luabind::error &er) {
-        cerr << er.what() << endl;
-        //TODO handle lua errors
+    } catch (const luabind::error &error) {
+        ERR( error.what() );
     }
     
     if(u == w) {
