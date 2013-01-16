@@ -120,10 +120,15 @@ public:
         reply.content += descriptionFactory.summary.durationString;
         reply.content += ","
                 "\"start_point\":\"";
-        reply.content += sEngine.GetEscapedNameForNameID(descriptionFactory.summary.startName);
+        std::string tmp;
+        convertInternalReversedCoordinateToString(phantomNodes.startPhantom.location, tmp);
+            
+//        reply.content += sEngine.GetEscapedNameForNameID(descriptionFactory.summary.startName);
+        reply.content += tmp;
         reply.content += "\","
                 "\"end_point\":\"";
-        reply.content += sEngine.GetEscapedNameForNameID(descriptionFactory.summary.destName);
+        convertInternalReversedCoordinateToString(phantomNodes.targetPhantom.location, tmp);
+//        reply.content += sEngine.GetEscapedNameForNameID(descriptionFactory.summary.destName);
         reply.content += "\"";
         reply.content += "}";
         reply.content +=",";
@@ -176,10 +181,14 @@ public:
             reply.content += alternateDescriptionFactory.summary.durationString;
             reply.content += ","
                     "\"start_point\":\"";
-            reply.content += sEngine.GetEscapedNameForNameID(descriptionFactory.summary.startName);
+            convertInternalReversedCoordinateToString(phantomNodes.startPhantom.location, tmp);
+                
+    //        reply.content += sEngine.GetEscapedNameForNameID(descriptionFactory.summary.startName);
+            reply.content += tmp;
             reply.content += "\","
                     "\"end_point\":\"";
-            reply.content += sEngine.GetEscapedNameForNameID(descriptionFactory.summary.destName);
+            convertInternalReversedCoordinateToString(phantomNodes.targetPhantom.location, tmp);
+    //        reply.content += sEngine.GetEscapedNameForNameID(descriptionFactory.summary.destName);
             reply.content += "\"";
             reply.content += "}";
         }
@@ -203,7 +212,7 @@ public:
         reply.content += "],";
         //list all viapoints so that the client may display it
         reply.content += "\"via_points\":[";
-        std::string tmp;
+//        std::string tmp;
         if(config.geometry && INT_MAX != rawRoute.lengthOfShortestPath) {
             for(unsigned i = 0; i < rawRoute.segmentEndCoordinates.size(); ++i) {
                 reply.content += "[";

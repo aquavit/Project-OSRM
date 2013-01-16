@@ -45,7 +45,7 @@ or see http://www.gnu.org/licenses/agpl.txt.
 
 #include "../Server/DataStructures/QueryObjectsStorage.h"
 
-class ViaRoutePlugin : public BasePlugin {
+class DistanceMatrixPlugin : public BasePlugin {
 private:
     NodeInformationHelpDesk * nodeHelpDesk;
     std::vector<std::string> & names;
@@ -74,7 +74,7 @@ public:
     std::string GetVersionString() const { return std::string("0.3 (DL)"); }
     void HandleRequest(const RouteParameters & routeParameters, http::Reply& reply) {
         //check number of parameters
-        if( 2 < routeParameters.coordinates.size() ) {
+        if( 2 > routeParameters.coordinates.size() || 500 < routeParameters.coordinates.size()) {
             reply = http::Reply::stockReply(http::Reply::badRequest);
             return;
         }
@@ -104,24 +104,6 @@ public:
             searchEngine->FindPhantomNodeForCoordinate( rawRoute.rawViaNodeCoordinates[i], phantomNodeVector[i], routeParameters.zoomLevel);
         }
 
-        for(unsigned i = 0; i < phantomNodeVector.size()-1; ++i) {
-            PhantomNodes segmentPhantomNodes;
-            segmentPhantomNodes.startPhantom = phantomNodeVector[i];
-            segmentPhantomNodes.targetPhantom = phantomNodeVector[i+1];
-            rawRoute.segmentEndCoordinates.push_back(segmentPhantomNodes);
-        }
-        if( ( routeParameters.alternateRoute ) && (1 == rawRoute.segmentEndCoordinates.size()) ) {
-//            INFO("Checking for alternative paths");
-            searchEngine->alternativePaths(rawRoute.segmentEndCoordinates[0],  rawRoute);
-
-        } else {
-            searchEngine->shortestPath(rawRoute.segmentEndCoordinates, rawRoute);
-        }
-
-
-        if(INT_MAX == rawRoute.lengthOfShortestPath ) {
-            DEBUG( "Error occurred, single path not found" );
-        }
         reply.status = http::Reply::ok;
 
         //TODO: Move to member as smart pointer
@@ -152,19 +134,49 @@ public:
 
             break;
         }
-
-        PhantomNodes phantomNodes;
-        phantomNodes.startPhantom = rawRoute.segmentEndCoordinates[0].startPhantom;
-//        INFO("Start location: " << phantomNodes.startPhantom.location)
-        phantomNodes.targetPhantom = rawRoute.segmentEndCoordinates[rawRoute.segmentEndCoordinates.size()-1].targetPhantom;
-//        INFO("TargetLocation: " << phantomNodes.targetPhantom.location);
-//        INFO("Number of segments: " << rawRoute.segmentEndCoordinates.size());
         desc->SetConfig(descriptorConfig);
 
-        desc->Run(reply, rawRoute, phantomNodes, *searchEngine);
+	std::string sep="";           
+	std::string arr="["; 
+        for(unsigned i = 0; i < phantomNodeVector.size(); ++i) {
+            for(unsigned j = 0; j < phantomNodeVector.size(); ++j) {
+		if (i == j) continue;
+                PhantomNodes phantomNodesPair;
+                phantomNodesPair.startPhantom = phantomNodeVector[i];
+                phantomNodesPair.targetPhantom = phantomNodeVector[j];
+                rawRoute.segmentEndCoordinates.clear();
+                rawRoute.segmentEndCoordinates.push_back(phantomNodesPair);
+
+        //        if( ( routeParameters.alternateRoute ) && (1 == rawRoute.segmentEndCoordinates.size()) ) {
+        //            INFO("Checking for alternative paths");
+        //            searchEngine->alternativePaths(rawRoute.segmentEndCoordinates[0],  rawRoute);
+
+        //        } else {
+                searchEngine->shortestPath(rawRoute.segmentEndCoordinates, rawRoute);
+        //        }
+                if(INT_MAX == rawRoute.lengthOfShortestPath ) {
+                    DEBUG( "Error occurred, single path not found" );
+                }
+                
+                PhantomNodes phantomNodes;
+                phantomNodes.startPhantom = rawRoute.segmentEndCoordinates[0].startPhantom;
+                INFO("Start location: " << phantomNodes.startPhantom.location)
+                phantomNodes.targetPhantom = rawRoute.segmentEndCoordinates[rawRoute.segmentEndCoordinates.size()-1].targetPhantom;
+                INFO("TargetLocation: " << phantomNodes.targetPhantom.location);
+                INFO("Number of segments: " << rawRoute.segmentEndCoordinates.size());
+
+		http::Reply partReply;
+                desc->Run(partReply, rawRoute, phantomNodes, *searchEngine);
+		arr += sep;
+                arr += partReply.content;
+		sep = ",";
+            }
+        }
+	reply.content += arr + "]";
         if("" != routeParameters.jsonpParameter) {
             reply.content += ")\n";
         }
+
         reply.headers.resize(3);
         reply.headers[0].name = "Content-Length";
         std::string tmp;
@@ -221,4 +233,4 @@ private:
 };
 
 
-#endif /* VIAROUTEPLUGIN_H_ */
+#endif /* DISTANCEMATRIXPLUGIN_H_ */

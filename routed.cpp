@@ -35,6 +35,7 @@ or see http://www.gnu.org/licenses/agpl.txt.
 #include "Plugins/NearestPlugin.h"
 #include "Plugins/TimestampPlugin.h"
 #include "Plugins/ViaRoutePlugin.h"
+#include "Plugins/DistanceMatrix.h"
 
 #include "Util/InputFileUtil.h"
 #include "Util/OpenMPWrapper.h"
@@ -114,6 +115,8 @@ int main (int argc, char * argv[0]) {
         h.RegisterPlugin(new TimestampPlugin(objects));
 
         h.RegisterPlugin(new ViaRoutePlugin(objects));
+
+        h.RegisterPlugin(new DistanceMatrixPlugin(objects));
 
         boost::thread t(boost::bind(&Server::Run, s));
 
