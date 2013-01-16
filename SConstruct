@@ -143,7 +143,8 @@ else:
 	if not conf.CheckLibWithHeader('luajit-5.1', 'luajit-2.0/lua.h', 'CXX'):
 		print "luajit library not found. Checking for interpreter"
 		env.ParseConfig('pkg-config --cflags --libs lua5.1')
-	env.ParseConfig('pkg-config --cflags --libs luabind')
+	#env.ParseConfig('pkg-config --cflags --libs luabind')
+	env.ParseConfig('echo -lluabind')
 
 #Check if architecture optimizations shall be turned off
 if GetOption('buildconfiguration') != 'debug' and sys.platform != 'darwin' and GetOption('nomarch') is None:
@@ -218,6 +219,14 @@ if not conf.CheckLib('boost_filesystem', language="C++"):
 		print "using boost -mt"
 		env.Append(CCFLAGS = ' -lboost_filesystem-mt')
 		env.Append(LINKFLAGS = ' -lboost_filesystem-mt')
+if not conf.CheckLib('boost_iostreams', language="C++"):
+	if not conf.CheckLib('boost_iostreams-mt', language="C++"):
+		print "boost_iostreams library not found. Exiting"
+		Exit(-1)
+	else:
+		print "using boost -mt"
+		env.Append(CCFLAGS = ' -lboost_iostreams-mt')
+		env.Append(LINKFLAGS = ' -lboost_iostreams-mt')
 if not conf.CheckCXXHeader('boost/archive/iterators/base64_from_binary.hpp'):
 	print "boost/archive/iterators/base64_from_binary.hpp not found. Exiting"
 	Exit(-1)
