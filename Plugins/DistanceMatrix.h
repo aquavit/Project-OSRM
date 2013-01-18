@@ -107,72 +107,75 @@ public:
         reply.status = http::Reply::ok;
 
         //TODO: Move to member as smart pointer
-        BaseDescriptor<SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > > * desc;
         if("" != routeParameters.jsonpParameter) {
             reply.content += routeParameters.jsonpParameter;
             reply.content += "(";
         }
 
-        _DescriptorConfig descriptorConfig;
+
         unsigned descriptorType = descriptorTable[routeParameters.outputFormat];
-        descriptorConfig.z = routeParameters.zoomLevel;
-        descriptorConfig.instructions = routeParameters.printInstructions;
-        descriptorConfig.geometry = routeParameters.geometry;
-        descriptorConfig.encodeGeometry = routeParameters.compression;
-
-        switch(descriptorType){
-        case 0:
-            desc = new JSONDescriptor<SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > >();
-
-            break;
-        case 1:
-            desc = new GPXDescriptor<SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > >();
-
-            break;
-        default:
-            desc = new JSONDescriptor<SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > >();
-
-            break;
-        }
-        desc->SetConfig(descriptorConfig);
-
-	std::string sep="";           
-	std::string arr="["; 
+        std::string sep="";           
+        std::string arr="["; 
         for(unsigned i = 0; i < phantomNodeVector.size(); ++i) {
             for(unsigned j = 0; j < phantomNodeVector.size(); ++j) {
-		if (i == j) continue;
+               if (i == j) continue;
+                RawRouteData rawRouteLocal;
                 PhantomNodes phantomNodesPair;
                 phantomNodesPair.startPhantom = phantomNodeVector[i];
                 phantomNodesPair.targetPhantom = phantomNodeVector[j];
-                rawRoute.segmentEndCoordinates.clear();
-                rawRoute.segmentEndCoordinates.push_back(phantomNodesPair);
+                rawRouteLocal.segmentEndCoordinates.clear();
+                rawRouteLocal.segmentEndCoordinates.push_back(phantomNodesPair);
 
         //        if( ( routeParameters.alternateRoute ) && (1 == rawRoute.segmentEndCoordinates.size()) ) {
         //            INFO("Checking for alternative paths");
         //            searchEngine->alternativePaths(rawRoute.segmentEndCoordinates[0],  rawRoute);
 
         //        } else {
-                searchEngine->shortestPath(rawRoute.segmentEndCoordinates, rawRoute);
+                searchEngine->shortestPath(rawRouteLocal.segmentEndCoordinates, rawRouteLocal);
         //        }
-                if(INT_MAX == rawRoute.lengthOfShortestPath ) {
+                if(INT_MAX == rawRouteLocal.lengthOfShortestPath ) {
                     DEBUG( "Error occurred, single path not found" );
                 }
                 
                 PhantomNodes phantomNodes;
-                phantomNodes.startPhantom = rawRoute.segmentEndCoordinates[0].startPhantom;
+                phantomNodes.startPhantom = rawRouteLocal.segmentEndCoordinates[0].startPhantom;
                 INFO("Start location: " << phantomNodes.startPhantom.location)
-                phantomNodes.targetPhantom = rawRoute.segmentEndCoordinates[rawRoute.segmentEndCoordinates.size()-1].targetPhantom;
+                phantomNodes.targetPhantom = rawRouteLocal.segmentEndCoordinates[rawRouteLocal.segmentEndCoordinates.size()-1].targetPhantom;
                 INFO("TargetLocation: " << phantomNodes.targetPhantom.location);
-                INFO("Number of segments: " << rawRoute.segmentEndCoordinates.size());
+                INFO("Number of segments: " << rawRouteLocal.segmentEndCoordinates.size());
 
-		http::Reply partReply;
-                desc->Run(partReply, rawRoute, phantomNodes, *searchEngine);
-		arr += sep;
+                BaseDescriptor<SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > > *desc;
+                _DescriptorConfig descriptorConfig;
+                descriptorConfig.z = routeParameters.zoomLevel;
+                descriptorConfig.instructions = routeParameters.printInstructions;
+                descriptorConfig.geometry = routeParameters.geometry;
+                descriptorConfig.encodeGeometry = routeParameters.compression;
+//                descriptorConfig.encodeGeometry = false;
+
+                switch(descriptorType){
+                case 0:
+                    desc = new JSONDescriptor<SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > >();
+
+                    break;
+                case 1:
+                    desc = new GPXDescriptor<SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > >();
+
+                    break;
+                default:
+                    desc = new JSONDescriptor<SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > >();
+
+                    break;
+                }
+                desc->SetConfig(descriptorConfig);
+                http::Reply partReply;
+                desc->Run(partReply, rawRouteLocal, phantomNodes, *searchEngine);
+                arr += sep;
                 arr += partReply.content;
-		sep = ",";
+                sep = ",";
+                delete desc;
             }
         }
-	reply.content += arr + "]";
+        reply.content += arr + "]";
         if("" != routeParameters.jsonpParameter) {
             reply.content += ")\n";
         }
@@ -220,7 +223,6 @@ public:
             break;
         }
 
-        delete desc;
         return;
     }
 private:

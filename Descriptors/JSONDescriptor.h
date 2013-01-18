@@ -128,6 +128,7 @@ public:
         reply.content += "\","
                 "\"end_point\":\"";
         convertInternalReversedCoordinateToString(phantomNodes.targetPhantom.location, tmp);
+	reply.content += tmp;
 //        reply.content += sEngine.GetEscapedNameForNameID(descriptionFactory.summary.destName);
         reply.content += "\"";
         reply.content += "}";
@@ -188,6 +189,7 @@ public:
             reply.content += "\","
                     "\"end_point\":\"";
             convertInternalReversedCoordinateToString(phantomNodes.targetPhantom.location, tmp);
+            reply.content += tmp;
     //        reply.content += sEngine.GetEscapedNameForNameID(descriptionFactory.summary.destName);
             reply.content += "\"";
             reply.content += "}";
