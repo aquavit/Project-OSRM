@@ -148,7 +148,7 @@ else:
 
 #Check if architecture optimizations shall be turned off
 if GetOption('buildconfiguration') != 'debug' and sys.platform != 'darwin' and GetOption('nomarch') is None:
-	env.Append(CCFLAGS = ['-march=native -mtune=native'])
+	env.Append(CCFLAGS = ['-march=native', '-mtune=native'])
 
 if not conf.CheckHeader('omp.h'):
 	print "Compiler does not support OpenMP. Exiting"
