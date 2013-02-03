@@ -32,6 +32,7 @@ or see http://www.gnu.org/licenses/agpl.txt.
 #include "Util/BaseConfiguration.h"
 #include "Util/InputFileUtil.h"
 #include "Util/MachineInfo.h"
+#include "Util/OpenMPWrapper.h"
 #include "Util/StringUtil.h"
 
 typedef BaseConfiguration ExtractorConfiguration;
@@ -39,6 +40,8 @@ typedef BaseConfiguration ExtractorConfiguration;
 ExtractorCallbacks * extractCallBacks;
 
 int main (int argc, char *argv[]) {
+    double earliestTime = get_timestamp();
+
     if(argc < 2) {
         ERR("usage: \n" << argv[0] << " <file.osm/.osm.bz2/.osm.pbf> [<profile.lua>]");
     }
@@ -67,12 +70,12 @@ int main (int argc, char *argv[]) {
             isPBF = true;
         }
     }
-    if(pos!=string::npos) {
+    if(pos!=std::string::npos) {
         outputFileName.replace(pos, 8, ".osrm");
         restrictionsFileName.replace(pos, 8, ".osrm.restrictions");
     } else {
         pos=outputFileName.find(".osm");
-        if(pos!=string::npos) {
+        if(pos!=std::string::npos) {
             outputFileName.replace(pos, 5, ".osrm");
             restrictionsFileName.replace(pos, 5, ".osrm.restrictions");
         } else {
@@ -113,7 +116,8 @@ int main (int argc, char *argv[]) {
     stringMap.clear();
     delete parser;
     delete extractCallBacks;
-    INFO("finished");
+    INFO("finished after " << get_timestamp() - earliestTime << "s");
+
     std::cout << "\nRun:\n"
                    "./osrm-prepare " << outputFileName << " " << restrictionsFileName << std::endl;
     return 0;

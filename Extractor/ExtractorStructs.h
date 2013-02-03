@@ -34,7 +34,7 @@ or see http://www.gnu.org/licenses/agpl.txt.
 #include "../DataStructures/ImportNode.h"
 #include "../DataStructures/NodeCoords.h"
 #include "../DataStructures/Restriction.h"
-#include "../DataStructures/Util.h"
+#include "../DataStructures/TimingUtil.h"
 #include "../typedefs.h"
 
 typedef boost::unordered_map<std::string, NodeID > StringMap;
@@ -52,10 +52,10 @@ struct _Way {
 		keyVals.EraseAll();
         direction = _Way::notSure;
         speed = -1;
+        duration = -1;
         type = -1;
         access = true;
         roundabout = false;
-        isDurationSet = false;
         isAccessRestricted = false;
         ignoreInGrid = false;
     }
@@ -67,10 +67,10 @@ struct _Way {
     unsigned nameID;
     std::string name;
     double speed;
+    double duration;
     short type;
     bool access;
     bool roundabout;
-    bool isDurationSet;
     bool isAccessRestricted;
     bool ignoreInGrid;
     std::vector< NodeID > path;
@@ -110,7 +110,7 @@ struct _Edge {
         return _Edge(0,0);
     }
     static _Edge max_value() {
-        return _Edge((numeric_limits<unsigned>::max)(), (numeric_limits<unsigned>::max)());
+        return _Edge((std::numeric_limits<unsigned>::max)(), (std::numeric_limits<unsigned>::max)());
     }
 
 };
@@ -125,10 +125,10 @@ struct _WayIDStartAndEndEdge {
     _WayIDStartAndEndEdge(unsigned w, NodeID fs, NodeID ft, NodeID ls, NodeID lt) :  wayID(w), firstStart(fs), firstTarget(ft), lastStart(ls), lastTarget(lt) {}
 
     static _WayIDStartAndEndEdge min_value() {
-        return _WayIDStartAndEndEdge((numeric_limits<unsigned>::min)(), (numeric_limits<unsigned>::min)(), (numeric_limits<unsigned>::min)(), (numeric_limits<unsigned>::min)(), (numeric_limits<unsigned>::min)());
+        return _WayIDStartAndEndEdge((std::numeric_limits<unsigned>::min)(), (std::numeric_limits<unsigned>::min)(), (std::numeric_limits<unsigned>::min)(), (std::numeric_limits<unsigned>::min)(), (std::numeric_limits<unsigned>::min)());
     }
     static _WayIDStartAndEndEdge max_value() {
-        return _WayIDStartAndEndEdge((numeric_limits<unsigned>::max)(), (numeric_limits<unsigned>::max)(), (numeric_limits<unsigned>::max)(), (numeric_limits<unsigned>::max)(), (numeric_limits<unsigned>::max)());
+        return _WayIDStartAndEndEdge((std::numeric_limits<unsigned>::max)(), (std::numeric_limits<unsigned>::max)(), (std::numeric_limits<unsigned>::max)(), (std::numeric_limits<unsigned>::max)(), (std::numeric_limits<unsigned>::max)());
     }
 };
 
@@ -202,7 +202,7 @@ struct CmpEdgeByTargetID : public std::binary_function<_Edge, _Edge, bool>
     }
 };
 
-inline string GetRandomString() {
+inline std::string GetRandomString() {
     char s[128];
     static const char alphanum[] =
             "0123456789"
@@ -213,7 +213,7 @@ inline string GetRandomString() {
         s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];
     }
     s[127] = 0;
-    return string(s);
+    return std::string(s);
 }
 
 #endif /* EXTRACTORSTRUCTS_H_ */

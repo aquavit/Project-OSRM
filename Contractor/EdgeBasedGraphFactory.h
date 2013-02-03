@@ -53,14 +53,14 @@ private:
     struct _NodeBasedEdgeData {
         int distance;
         unsigned edgeBasedNodeID;
-        unsigned nameID:31;
+        unsigned nameID;
+        short type;
+        bool isAccessRestricted;
         bool shortcut:1;
         bool forward:1;
         bool backward:1;
         bool roundabout:1;
         bool ignoreInGrid:1;
-        short type;
-        bool isAccessRestricted;
     };
 
     struct _EdgeBasedEdgeData {
@@ -127,8 +127,6 @@ private:
             bool belongsToTinyComponent);
     template<class CoordinateT>
     double GetAngleBetweenTwoEdges(const CoordinateT& A, const CoordinateT& C, const CoordinateT& B) const;
-//    SRTMLookup srtmLookup;
-
 
 public:
     template< class InputEdgeT >
@@ -137,7 +135,6 @@ public:
     void Run(const char * originalEdgeDataFilename);
     void GetEdgeBasedEdges( DeallocatingVector< EdgeBasedEdge >& edges );
     void GetEdgeBasedNodes( DeallocatingVector< EdgeBasedNode> & nodes);
-    void GetOriginalEdgeData( std::vector< OriginalEdgeData> & originalEdgeData);
     TurnInstruction AnalyzeTurn(const NodeID u, const NodeID v, const NodeID w) const;
     unsigned GetNumberOfNodes() const;
 };
