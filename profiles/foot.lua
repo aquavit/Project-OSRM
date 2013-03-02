@@ -41,7 +41,7 @@ use_restrictions 		= false
 ignore_areas 			= true -- future feature
 traffic_signal_penalty 	= 2
 u_turn_penalty 			= 2
-
+use_turn_restrictions   = false
 -- End of globals
 
 function get_exceptions(vector)
@@ -75,13 +75,8 @@ function node_function (node)
   return 1
 end
 
-function way_function (way, numberOfNodesInWay)
+function way_function (way)
 
-  -- A way must have two nodes or more
-  if(numberOfNodesInWay < 2) then
-    return 0;
-  end
-  
   -- First, get the properties of each way that we come across
     local highway = way.tags:Find("highway")
     local name = way.tags:Find("name")
@@ -152,10 +147,7 @@ function way_function (way, numberOfNodesInWay)
     
   -- Set the avg speed on the way if it is accessible by road class
     if (speed_profile[highway] ~= nil and way.speed == -1 ) then 
-      if (0 < maxspeed and not take_minimum_of_speeds) or (maxspeed == 0) then
-        maxspeed = math.huge
-      end
-      way.speed = math.min(speed_profile[highway], maxspeed)
+      way.speed = speed_profile[highway]
     end
     
   -- Set the avg speed on ways that are marked accessible

@@ -1,7 +1,7 @@
 -- Begin of globals
 require("lib/access")
 
-barrier_whitelist = { ["cattle_grid"] = true, ["border_control"] = true, ["toll_booth"] = true, ["sally_port"] = true, ["gate"] = true}
+barrier_whitelist = { ["cattle_grid"] = true, ["border_control"] = true, ["toll_booth"] = true, ["sally_port"] = true, ["gate"] = true, ["no"] = true}
 access_tag_whitelist = { ["yes"] = true, ["motorcar"] = true, ["motor_vehicle"] = true, ["vehicle"] = true, ["permissive"] = true, ["designated"] = true  }
 access_tag_blacklist = { ["no"] = true, ["private"] = true, ["agricultural"] = true, ["forestry"] = true }
 access_tag_restricted = { ["destination"] = true, ["delivery"] = true }
@@ -89,13 +89,7 @@ function node_function (node)
 end
 
 
-function way_function (way, numberOfNodesInWay)
-
-  -- A way must have two nodes or more
-  if(numberOfNodesInWay < 2) then
-    return 0;
-  end
-  
+function way_function (way)
   -- First, get the properties of each way that we come across
     local highway = way.tags:Find("highway")
     local name = way.tags:Find("name")
@@ -103,6 +97,8 @@ function way_function (way, numberOfNodesInWay)
     local junction = way.tags:Find("junction")
     local route = way.tags:Find("route")
     local maxspeed = parse_maxspeed(way.tags:Find ( "maxspeed") )
+    local maxspeed_forward = tonumber(way.tags:Find( "maxspeed:forward"))
+    local maxspeed_backward = tonumber(way.tags:Find( "maxspeed:backward"))
     local barrier = way.tags:Find("barrier")
     local oneway = way.tags:Find("oneway")
     local cycleway = way.tags:Find("cycleway")
@@ -136,27 +132,31 @@ function way_function (way, numberOfNodesInWay)
 	end
 
   -- Handling ferries and piers
-    if (speed_profile[route] ~= nil and speed_profile[route] > 0) then
-      if durationIsValid(duration) then
-	    way.duration = math.max( parseDuration(duration), 1 );
-      end
-      way.direction = Way.bidirectional
-      if speed_profile[route] ~= nil then
-         highway = route;
-      end
-      if tonumber(way.duration) < 0 then
-        way.speed = speed_profile[highway]
-      end
-    end
+  if (speed_profile[route] ~= nil and speed_profile[route] > 0) then
+   if durationIsValid(duration) then
+    way.duration = math.max( parseDuration(duration), 1 );
+   end
+   way.direction = Way.bidirectional
+   if speed_profile[route] ~= nil then
+    highway = route;
+   end
+   if tonumber(way.duration) < 0 then
+    way.speed = speed_profile[highway]
+   end
+  end
     
   -- Set the avg speed on the way if it is accessible by road class
-    if (speed_profile[highway] ~= nil and way.speed == -1 ) then 
-      if 0 == maxspeed then
-        maxspeed = math.huge
-      end
-      way.speed = math.min(speed_profile[highway], maxspeed)
+  if (speed_profile[highway] ~= nil and way.speed == -1 ) then
+  if maxspeed > speed_profile[highway] then
+   way.speed = maxspeed
+  else
+   if 0 == maxspeed then
+    maxspeed = math.huge
+   end
+   way.speed = math.min(speed_profile[highway], maxspeed)
     end
-    
+  end
+
   -- Set the avg speed on ways that are marked accessible
     if "" ~= highway and access_tag_whitelist[access] and way.speed == -1 then
       if 0 == maxspeed then
@@ -164,11 +164,6 @@ function way_function (way, numberOfNodesInWay)
       end
       way.speed = math.min(speed_profile["default"], maxspeed)
     end
-    
-    if durationIsValid(duration) then
-      way.duration = math.max( parseDuration(duration), 1 );
-    end
-
 
   -- Set access restriction flag if access is allowed under certain restrictions only
     if access ~= "" and access_tag_restricted[access] then
@@ -194,7 +189,18 @@ function way_function (way, numberOfNodesInWay)
     else
       way.direction = Way.bidirectional
     end
-    
+
+  -- Override speed settings if explicit forward/backward maxspeeds are given
+    if maxspeed_forward ~= nil and maxspeed_forward > 0 then
+	if Way.bidirectional == way.direction then
+          way.backward_speed = way.speed
+        end
+        way.speed = maxspeed_forward
+    end
+    if maxspeed_backward ~= nil and maxspeed_backward > 0 then
+      way.backward_speed = maxspeed_backward
+    end
+
   -- Override general direction settings of there is a specific one for our mode of travel
   
     if ignore_in_grid[highway] ~= nil and ignore_in_grid[highway] then
