@@ -130,7 +130,7 @@ end
 function way_function (way, numberOfNodesInWay)
 
   -- A way must have two nodes or more
-  if(numberOfNodesInWay < 2) then
+  if(numberOfNodesInWay ~= nil and numberOfNodesInWay < 2) then
     return 0;
   end
   
