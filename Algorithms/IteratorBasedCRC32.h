@@ -22,6 +22,8 @@ or see http://www.gnu.org/licenses/agpl.txt.
 #ifndef ITERATORBASEDCRC32_H_
 #define ITERATORBASEDCRC32_H_
 
+#include "../Util/SimpleLogger.h"
+
 #include <boost/crc.hpp>  // for boost::crc_32_type
 #include <iostream>
 
@@ -30,7 +32,6 @@ class IteratorbasedCRC32 {
 private:
     typedef typename ContainerT::iterator ContainerT_iterator;
     unsigned crc;
-    unsigned slowcrc_table[1<<8];
 
     typedef boost::crc_optimal<32, 0x1EDC6F41, 0x0, 0x0, true, true> my_crc_32_type;
     typedef unsigned (IteratorbasedCRC32::*CRC32CFunctionPtr)(char *str, unsigned len, unsigned crc);
@@ -81,10 +82,10 @@ private:
         unsigned ecx = cpuid(1);
         bool hasSSE42 = ecx & (1 << SSE42_BIT);
         if (hasSSE42) {
-            std::cout << "using hardware base sse computation" << std::endl;
+            SimpleLogger().Write() << "using hardware based CRC32 computation";
             return &IteratorbasedCRC32::SSEBasedCRC32; //crc32 hardware accelarated;
         } else {
-            std::cout << "using software base sse computation" << std::endl;
+            SimpleLogger().Write() << "using software based CRC32 computation";
             return &IteratorbasedCRC32::SoftwareBasedCRC32; //crc32cSlicingBy8;
         }
     }
@@ -94,7 +95,7 @@ public:
         crcFunction = detectBestCRC32C();
     }
 
-    virtual ~IteratorbasedCRC32() {};
+    virtual ~IteratorbasedCRC32() { }
 
     unsigned operator()( ContainerT_iterator iter, const ContainerT_iterator end) {
         unsigned crc = 0;

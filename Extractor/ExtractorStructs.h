@@ -21,21 +21,20 @@ or see http://www.gnu.org/licenses/agpl.txt.
 #ifndef EXTRACTORSTRUCTS_H_
 #define EXTRACTORSTRUCTS_H_
 
-#include <climits>
-#include <string>
+#include "../DataStructures/Coordinate.h"
+#include "../DataStructures/HashTable.h"
+#include "../DataStructures/ImportNode.h"
+#include "../DataStructures/QueryNode.h"
+#include "../DataStructures/Restriction.h"
+#include "../typedefs.h"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/regex.hpp>
 #include <boost/regex.hpp>
 #include <boost/unordered_map.hpp>
 
-#include "../DataStructures/Coordinate.h"
-#include "../DataStructures/HashTable.h"
-#include "../DataStructures/ImportNode.h"
-#include "../DataStructures/NodeCoords.h"
-#include "../DataStructures/Restriction.h"
-#include "../DataStructures/TimingUtil.h"
-#include "../typedefs.h"
+#include <climits>
+#include <string>
 
 typedef boost::unordered_map<std::string, NodeID > StringMap;
 typedef boost::unordered_map<std::string, std::pair<int, short> > StringToIntPairMap;
@@ -44,12 +43,12 @@ struct ExtractionWay {
     ExtractionWay() {
 		Clear();
     }
-	
+
 	inline void Clear(){
 		id = UINT_MAX;
 		nameID = UINT_MAX;
 		path.clear();
-		keyVals.EraseAll();
+		keyVals.clear();
         direction = ExtractionWay::notSure;
         speed = -1;
         backward_speed = -1;
@@ -110,8 +109,8 @@ struct InternalExtractorEdge {
     bool isAccessRestricted;
     bool isContraFlow;
 
-    _Coordinate startCoord;
-    _Coordinate targetCoord;
+    FixedPointCoordinate startCoord;
+    FixedPointCoordinate targetCoord;
 
     static InternalExtractorEdge min_value() {
         return InternalExtractorEdge(0,0);

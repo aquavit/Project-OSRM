@@ -18,11 +18,22 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 or see http://www.gnu.org/licenses/agpl.txt.
  */
 
-#ifndef SERVERCONFIGURATION_H_
-#define SERVERCONFIGURATION_H_
+#ifndef OSRM_EXCEPTION_H
+#define OSRM_EXCEPTION_H
 
-#include "../Util/BaseConfiguration.h"
+#include <exception>
+#include <string>
 
-typedef BaseConfiguration ServerConfiguration;
+class OSRMException: public std::exception {
+public:
+    OSRMException(const char * message) : message(message) {}
+    OSRMException(const std::string & message) : message(message) {}
+    virtual ~OSRMException() throw() {}
+private:
+    virtual const char* what() const throw() {
+        return message.c_str();
+    }
+    const std::string message;
+};
 
-#endif /* SERVERCONFIGURATION_H_ */
+#endif /* OSRM_EXCEPTION_H */

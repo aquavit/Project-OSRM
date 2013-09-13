@@ -21,15 +21,25 @@ or see http://www.gnu.org/licenses/agpl.txt.
 #ifndef ROUTE_PARAMETERS_H
 #define ROUTE_PARAMETERS_H
 
+#include "../../DataStructures/Coordinate.h"
+#include "../../DataStructures/HashTable.h"
+
+#include <boost/fusion/container/vector.hpp>
+#include <boost/fusion/sequence/intrinsic.hpp>
+#include <boost/fusion/include/at_c.hpp>
+
 #include <string>
 #include <vector>
 
-#include <boost/fusion/sequence/intrinsic.hpp>
-
-#include "../DataStructures/Coordinate.h"
-
 struct RouteParameters {
-    RouteParameters() : zoomLevel(18), printInstructions(false), alternateRoute(true), geometry(true), compression(true), deprecatedAPI(false), checkSum(-1) {}
+    RouteParameters() :
+        zoomLevel(18),
+        printInstructions(false),
+        alternateRoute(true),
+        geometry(true),
+        compression(true),
+        deprecatedAPI(false),
+        checkSum(-1) {}
     short zoomLevel;
     bool printInstructions;
     bool alternateRoute;
@@ -42,12 +52,13 @@ struct RouteParameters {
     std::string jsonpParameter;
     std::string language;
     std::vector<std::string> hints;
-    std::vector<_Coordinate> coordinates;
-    typedef HashTable<std::string, std::string>::MyIterator OptionsIterator;
+    std::vector<FixedPointCoordinate> coordinates;
+    typedef HashTable<std::string, std::string>::const_iterator OptionsIterator;
 
     void setZoomLevel(const short i) {
-        if (18 > i && 0 < i)
+        if (18 > i && 0 < i) {
             zoomLevel = i;
+        }
     }
 
     void setAlternateRouteFlag(const bool b) {
@@ -95,13 +106,11 @@ struct RouteParameters {
         compression = b;
     }
 
-    void addCoordinate(boost::fusion::vector < double, double > arg_) {
-        int lat = 100000.*boost::fusion::at_c < 0 > (arg_);
-        int lon = 100000.*boost::fusion::at_c < 1 > (arg_);
-        _Coordinate myCoordinate(lat, lon);
-        coordinates.push_back(_Coordinate(lat, lon));
+    void addCoordinate(const boost::fusion::vector < double, double > & arg_) {
+        int lat = COORDINATE_PRECISION*boost::fusion::at_c < 0 > (arg_);
+        int lon = COORDINATE_PRECISION*boost::fusion::at_c < 1 > (arg_);
+        coordinates.push_back(FixedPointCoordinate(lat, lon));
     }
 };
-
 
 #endif /*ROUTE_PARAMETERS_H*/

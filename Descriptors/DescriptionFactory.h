@@ -21,16 +21,16 @@
 #ifndef DESCRIPTIONFACTORY_H_
 #define DESCRIPTIONFACTORY_H_
 
-#include <vector>
-
-#include "../typedefs.h"
 #include "../Algorithms/DouglasPeucker.h"
 #include "../Algorithms/PolylineCompressor.h"
 #include "../DataStructures/Coordinate.h"
-#include "../DataStructures/QueryEdge.h"
 #include "../DataStructures/SearchEngine.h"
 #include "../DataStructures/SegmentInformation.h"
 #include "../DataStructures/TurnInstructions.h"
+#include "../Util/SimpleLogger.h"
+#include "../typedefs.h"
+
+#include <vector>
 
 /* This class is fed with all way segments in consecutive order
  *  and produces the description plus the encoded polyline */
@@ -39,8 +39,6 @@ class DescriptionFactory {
     DouglasPeucker<SegmentInformation> dp;
     PolylineCompressor pc;
     PhantomNode startPhantom, targetPhantom;
-
-    typedef SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > SearchEngineT;
 
     double DegreeToRadian(const double degree) const;
     double RadianToDegree(const double degree) const;
@@ -65,15 +63,15 @@ public:
     std::vector <SegmentInformation> pathDescription;
     DescriptionFactory();
     virtual ~DescriptionFactory();
-    double GetBearing(const _Coordinate& C, const _Coordinate& B) const;
+    double GetBearing(const FixedPointCoordinate& C, const FixedPointCoordinate& B) const;
     void AppendEncodedPolylineString(std::string &output);
     void AppendUnencodedPolylineString(std::string &output);
-    void AppendSegment(const _Coordinate & coordinate, const _PathData & data);
+    void AppendSegment(const FixedPointCoordinate & coordinate, const _PathData & data);
     void BuildRouteSummary(const double distance, const unsigned time);
     void SetStartSegment(const PhantomNode & startPhantom);
     void SetEndSegment(const PhantomNode & startPhantom);
     void AppendEncodedPolylineString(std::string & output, bool isEncoded);
-    void Run(const SearchEngineT &sEngine, const unsigned zoomLevel);
+    void Run(const SearchEngine &sEngine, const unsigned zoomLevel);
 };
 
 #endif /* DESCRIPTIONFACTORY_H_ */

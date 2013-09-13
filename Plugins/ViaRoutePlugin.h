@@ -21,29 +21,24 @@ or see http://www.gnu.org/licenses/agpl.txt.
 #ifndef VIAROUTEPLUGIN_H_
 #define VIAROUTEPLUGIN_H_
 
-#include <cstdlib>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <vector>
-
 #include "BasePlugin.h"
-#include "RouteParameters.h"
 
 #include "../Algorithms/ObjectToBase64.h"
-
-#include "../Descriptors/BaseDescriptor.h"
-#include "../Descriptors/GPXDescriptor.h"
-#include "../Descriptors/JSONDescriptor.h"
-
 #include "../DataStructures/HashTable.h"
 #include "../DataStructures/QueryEdge.h"
 #include "../DataStructures/StaticGraph.h"
 #include "../DataStructures/SearchEngine.h"
-
+#include "../Descriptors/BaseDescriptor.h"
+#include "../Descriptors/GPXDescriptor.h"
+#include "../Descriptors/JSONDescriptor.h"
+#include "../Server/DataStructures/QueryObjectsStorage.h"
+#include "../Util/SimpleLogger.h"
 #include "../Util/StringUtil.h"
 
-#include "../Server/DataStructures/QueryObjectsStorage.h"
+#include <cstdlib>
+
+#include <string>
+#include <vector>
 
 class ViaRoutePlugin : public BasePlugin {
 private:
@@ -51,27 +46,30 @@ private:
     std::vector<std::string> & names;
     StaticGraph<QueryEdge::EdgeData> * graph;
     HashTable<std::string, unsigned> descriptorTable;
-    std::string pluginDescriptorString;
-    SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > * searchEngine;
+    SearchEngine * searchEnginePtr;
 public:
 
-    ViaRoutePlugin(QueryObjectsStorage * objects, std::string psd = "viaroute") : names(objects->names), pluginDescriptorString(psd) {
+    ViaRoutePlugin(QueryObjectsStorage * objects)
+     :
+        names(objects->names),
+        descriptor_string("viaroute")
+    {
         nodeHelpDesk = objects->nodeHelpDesk;
         graph = objects->graph;
 
-        searchEngine = new SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> >(graph, nodeHelpDesk, names);
+        searchEnginePtr = new SearchEngine(graph, nodeHelpDesk, names);
 
-        descriptorTable.Set("", 0); //default descriptor
-        descriptorTable.Set("json", 0);
-        descriptorTable.Set("gpx", 1);
+        descriptorTable.insert(std::make_pair(""    , 0));
+        descriptorTable.insert(std::make_pair("json", 0));
+        descriptorTable.insert(std::make_pair("gpx" , 1));
     }
 
     virtual ~ViaRoutePlugin() {
-        delete searchEngine;
+        delete searchEnginePtr;
     }
 
-    std::string GetDescriptor() const { return pluginDescriptorString; }
-    std::string GetVersionString() const { return std::string("0.3 (DL)"); }
+    const std::string & GetDescriptor() const { return descriptor_string; }
+
     void HandleRequest(const RouteParameters & routeParameters, http::Reply& reply) {
         //check number of parameters
         if( 2 > routeParameters.coordinates.size() ) {
@@ -93,15 +91,15 @@ public:
         std::vector<PhantomNode> phantomNodeVector(rawRoute.rawViaNodeCoordinates.size());
         for(unsigned i = 0; i < rawRoute.rawViaNodeCoordinates.size(); ++i) {
             if(checksumOK && i < routeParameters.hints.size() && "" != routeParameters.hints[i]) {
-//                INFO("Decoding hint: " << routeParameters.hints[i] << " for location index " << i);
-                DecodeObjectFromBase64(phantomNodeVector[i], routeParameters.hints[i]);
+//                SimpleLogger().Write() <<"Decoding hint: " << routeParameters.hints[i] << " for location index " << i;
+                DecodeObjectFromBase64(routeParameters.hints[i], phantomNodeVector[i]);
                 if(phantomNodeVector[i].isValid(nodeHelpDesk->getNumberOfNodes())) {
-//                    INFO("Decoded hint " << i << " successfully");
+//                    SimpleLogger().Write() << "Decoded hint " << i << " successfully";
                     continue;
                 }
             }
-//            INFO("Brute force lookup of coordinate " << i);
-            searchEngine->FindPhantomNodeForCoordinate( rawRoute.rawViaNodeCoordinates[i], phantomNodeVector[i], routeParameters.zoomLevel);
+//            SimpleLogger().Write() << "Brute force lookup of coordinate " << i;
+            searchEnginePtr->FindPhantomNodeForCoordinate( rawRoute.rawViaNodeCoordinates[i], phantomNodeVector[i], routeParameters.zoomLevel);
         }
 
         for(unsigned i = 0; i < phantomNodeVector.size()-1; ++i) {
@@ -111,21 +109,21 @@ public:
             rawRoute.segmentEndCoordinates.push_back(segmentPhantomNodes);
         }
         if( ( routeParameters.alternateRoute ) && (1 == rawRoute.segmentEndCoordinates.size()) ) {
-//            INFO("Checking for alternative paths");
-            searchEngine->alternativePaths(rawRoute.segmentEndCoordinates[0],  rawRoute);
+//            SimpleLogger().Write() << "Checking for alternative paths";
+            searchEnginePtr->alternativePaths(rawRoute.segmentEndCoordinates[0],  rawRoute);
 
         } else {
-            searchEngine->shortestPath(rawRoute.segmentEndCoordinates, rawRoute);
+            searchEnginePtr->shortestPath(rawRoute.segmentEndCoordinates, rawRoute);
         }
 
 
         if(INT_MAX == rawRoute.lengthOfShortestPath ) {
-            DEBUG( "Error occurred, single path not found" );
+            SimpleLogger().Write(logDEBUG) << "Error occurred, single path not found";
         }
         reply.status = http::Reply::ok;
 
         //TODO: Move to member as smart pointer
-        BaseDescriptor<SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > > * desc;
+        BaseDescriptor * desc;
         if("" != routeParameters.jsonpParameter) {
             reply.content += routeParameters.jsonpParameter;
             reply.content += "(";
@@ -140,28 +138,28 @@ public:
 
         switch(descriptorType){
         case 0:
-            desc = new JSONDescriptor<SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > >();
+            desc = new JSONDescriptor();
 
             break;
         case 1:
-            desc = new GPXDescriptor<SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > >();
+            desc = new GPXDescriptor();
 
             break;
         default:
-            desc = new JSONDescriptor<SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > >();
+            desc = new JSONDescriptor();
 
             break;
         }
 
         PhantomNodes phantomNodes;
         phantomNodes.startPhantom = rawRoute.segmentEndCoordinates[0].startPhantom;
-//        INFO("Start location: " << phantomNodes.startPhantom.location)
+//        SimpleLogger().Write() << "Start location: " << phantomNodes.startPhantom.location;
         phantomNodes.targetPhantom = rawRoute.segmentEndCoordinates[rawRoute.segmentEndCoordinates.size()-1].targetPhantom;
-//        INFO("TargetLocation: " << phantomNodes.targetPhantom.location);
-//        INFO("Number of segments: " << rawRoute.segmentEndCoordinates.size());
+//        SimpleLogger().Write() << "TargetLocation: " << phantomNodes.targetPhantom.location;
+//        SimpleLogger().Write() << "Number of segments: " << rawRoute.segmentEndCoordinates.size();
         desc->SetConfig(descriptorConfig);
 
-        desc->Run(reply, rawRoute, phantomNodes, *searchEngine);
+        desc->Run(reply, rawRoute, phantomNodes, *searchEnginePtr);
         if("" != routeParameters.jsonpParameter) {
             reply.content += ")\n";
         }
@@ -204,7 +202,6 @@ public:
                 reply.headers[2].name = "Content-Disposition";
                 reply.headers[2].value = "attachment; filename=\"route.json\"";
             }
-
             break;
         }
 
@@ -212,12 +209,7 @@ public:
         return;
     }
 private:
-    inline bool checkCoord(const _Coordinate & c) {
-        if(c.lat > 90*100000 || c.lat < -90*100000 || c.lon > 180*100000 || c.lon <-180*100000) {
-            return false;
-        }
-        return true;
-    }
+    std::string descriptor_string;
 };
 
 

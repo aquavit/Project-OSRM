@@ -24,17 +24,21 @@
 #include <vector>
 #include <fstream>
 
+#include <boost/assert.hpp>
+#include <boost/foreach.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/thread/mutex.hpp>
 
+#include "../Util/OSRMException.h"
+#include "../Util/SimpleLogger.h"
 #include "../typedefs.h"
 
 //This is one big workaround for latest boost renaming woes.
 
-#ifndef BOOST_FILESYSTEM_VERSION
-#warning Boost Installation with Filesystem3 (>=1.44) is required, activating workaround
+#if BOOST_FILESYSTEM_VERSION < 3
+#warning Boost Installation with Filesystem3 missing, activating workaround
 #include <cstdio>
 namespace boost {
 namespace filesystem {
@@ -54,8 +58,9 @@ inline path unique_path(const path&) {
 
 #endif
 
+#ifndef BOOST_FILESYSTEM_VERSION
 #define BOOST_FILESYSTEM_VERSION 3
-
+#endif
 /**
  * This class implements a singleton file storage for temporary data.
  * temporary slots can be accessed by other objects through an int
@@ -89,8 +94,6 @@ private:
     }
     void abort(boost::filesystem::filesystem_error& e);
 
-    ;
-
     struct StreamData {
         bool writeMode;
         boost::filesystem::path pathToTemporaryFile;
@@ -102,8 +105,9 @@ private:
             streamToTemporaryFile(new boost::filesystem::fstream(pathToTemporaryFile, std::ios::in | std::ios::out | std::ios::trunc | std::ios::binary)),
             readWriteMutex(new boost::mutex)
         {
-            if(streamToTemporaryFile->fail())
-                ERR("Aborting, because temporary file at " << pathToTemporaryFile << " could not be created");
+            if(streamToTemporaryFile->fail()) {
+                throw OSRMException("temporary file could not be created");
+            }
         }
     };
     //vector of file streams that is used to store temporary data

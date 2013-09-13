@@ -15,7 +15,7 @@ Handle oneways streets, as defined at http://wiki.openstreetmap.org/wiki/OSM_tag
 		 | highway | oneway | forw | backw |
 		 | primary | -1     |      | x     |
 
-	Scenario: Car - Implied onewatys
+	Scenario: Car - Implied oneways
 		Then routability should be
 		 | highway       | junction   | forw | backw |
 		 | motorway      |            | x    |       |
@@ -24,6 +24,12 @@ Handle oneways streets, as defined at http://wiki.openstreetmap.org/wiki/OSM_tag
 		 | motorway      | roundabout | x    |       |
 		 | motorway_link | roundabout | x    |       |
 		 | primary       | roundabout | x    |       |
+
+	Scenario: Car - Overrule implied oneway
+		Then routability should be
+		 | highway       | oneway | forw | backw | 
+		 | motorway      | no     | x    | x     | 
+		 | motorway_link | no     | x    | x     |
 
 	Scenario: Car - Around the Block
 		Given the node map
@@ -57,3 +63,17 @@ Handle oneways streets, as defined at http://wiki.openstreetmap.org/wiki/OSM_tag
 		 | primary | roundabout |        | yes            | x    |       |
 		 | primary | roundabout |        | no             | x    |       |
 		 | primary | roundabout |        | -1             | x    |       |
+
+  	Scenario: Car - Two consecutive oneways
+  		Given the node map
+  		 | a | b | c |
+
+  		And the ways
+  		 | nodes | oneway |
+  		 | ab    | yes    |
+  		 | bc    | yes    |
+
+
+  		When I route I should get
+  		 | from | to | route |
+  		 | a    | c  | ab,bc |

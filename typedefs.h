@@ -21,7 +21,6 @@ or see http://www.gnu.org/licenses/agpl.txt.
 #ifndef TYPEDEFS_H_
 #define TYPEDEFS_H_
 
-#include <cmath>
 #include <climits>
 #include <cstdlib>
 
@@ -34,31 +33,19 @@ or see http://www.gnu.org/licenses/agpl.txt.
 #endif
 
 #include <iostream>
+#include <ostream>
 
-#define INFO(x) do {std::cout << "[info " << __FILE__ << ":" << __LINE__ << "] " << x << std::endl;} while(0);
-#define ERR(x) do {std::cerr << "[error " << __FILE__ << ":" << __LINE__ << "] " << x << std::endl; std::exit(-1);} while(0);
-#define WARN(x) do {std::cerr << "[warn " << __FILE__ << ":" << __LINE__ << "] " << x << std::endl;} while(0);
-
-#ifdef NDEBUG
-#define DEBUG(x)
-#define GUARANTEE(x,y)
-#else
-#define DEBUG(x) do {std::cout << "[debug " << __FILE__ << ":" << __LINE__ << "] " << x << std::endl;} while(0);
-#define GUARANTEE(x,y) do { {do{ if(false == (x)) { ERR(y) } } while(0);} } while(0);
-#endif
-
+// Necessary workaround for Windows as VS doesn't implement C99
+#ifdef _MSC_VER
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
-// Necessary workaround for Windows as VS doesn't implement C99
-#ifdef _MSC_VER
 template<typename digitT>
 digitT round(digitT x) {
     return std::floor(x + 0.5);
 }
 #endif
-
 
 typedef unsigned int NodeID;
 typedef unsigned int EdgeID;

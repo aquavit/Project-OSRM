@@ -33,11 +33,10 @@ ehthumbs.db
 Icon?
 Thumbs.db
 
-# SCons related files #
+# build related files #
 #######################
-SconsBuilder*
-.scon*
-.build
+/build/
+/Util/UUID.cpp
 
 # Eclipse related files #
 #########################
@@ -74,6 +73,7 @@ stxxl.errlog
 /osrm-extract
 /osrm-routed
 /osrm-prepare
+/osrm-cli
 /nohup.out
 
 # Sandbox folder #
@@ -81,4 +81,3 @@ stxxl.errlog
 /sandbox/
 
 /test/profile.lua
-/profile.lua

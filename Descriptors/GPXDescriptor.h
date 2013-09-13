@@ -21,19 +21,19 @@ or see http://www.gnu.org/licenses/agpl.txt.
 #ifndef GPX_DESCRIPTOR_H_
 #define GPX_DESCRIPTOR_H_
 
-#include <boost/foreach.hpp>
 #include "BaseDescriptor.h"
 
-template<class SearchEngineT>
-class GPXDescriptor : public BaseDescriptor<SearchEngineT>{
+#include <boost/foreach.hpp>
+
+class GPXDescriptor : public BaseDescriptor{
 private:
     _DescriptorConfig config;
-    _Coordinate current;
+    FixedPointCoordinate current;
 
     std::string tmp;
 public:
     void SetConfig(const _DescriptorConfig& c) { config = c; }
-    void Run(http::Reply & reply, const RawRouteData &rawRoute, PhantomNodes &phantomNodes, SearchEngineT &sEngine) {
+    void Run(http::Reply & reply, const RawRouteData &rawRoute, PhantomNodes &phantomNodes, SearchEngine &sEngine) {
         reply.content += ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
         reply.content += "<gpx creator=\"OSRM Routing Engine\" version=\"1.1\" xmlns=\"http://www.topografix.com/GPX/1/1\" "
                 "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" "

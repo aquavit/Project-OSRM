@@ -18,17 +18,18 @@
  or see http://www.gnu.org/licenses/agpl.txt.
  */
 
-#include <boost/ref.hpp>
-
 #include "XMLParser.h"
 
 #include "ExtractorStructs.h"
 #include "../DataStructures/HashTable.h"
 #include "../DataStructures/InputReaderFactory.h"
 
+#include <boost/ref.hpp>
 
 XMLParser::XMLParser(const char * filename, ExtractorCallbacks* ec, ScriptingEnvironment& se) : BaseParser(ec, se) {
-	WARN("Parsing plain .osm/.osm.bz2 is deprecated. Switch to .pbf");
+	SimpleLogger().Write(logWARNING) <<
+		"Parsing plain .osm/.osm.bz2 is deprecated. Switch to .pbf";
+
 	inputReader = inputReaderFactory(filename);
 }
 
@@ -43,12 +44,12 @@ bool XMLParser::Parse() {
 		if ( type != 1 ) {
 			continue;
 		}
-		
+
 		xmlChar* currentName = xmlTextReaderName( inputReader );
 		if ( currentName == NULL ) {
 			continue;
 		}
-		
+
 		if ( xmlStrEqual( currentName, ( const xmlChar* ) "node" ) == 1 ) {
 			ImportNode n = _ReadXMLNode();
 			ParseNodeInLua( n, luaState );
@@ -130,13 +131,13 @@ _RawRestrictionContainer XMLParser::_ReadXMLRestriction() {
 					xmlChar * type = xmlTextReaderGetAttribute( inputReader, ( const xmlChar* ) "type" );
 
 					if(xmlStrEqual(role, (const xmlChar *) "to") && xmlStrEqual(type, (const xmlChar *) "way")) {
-						restriction.toWay = atoi((const char*) ref);
+						restriction.toWay = stringToUint((const char*) ref);
 					}
 					if(xmlStrEqual(role, (const xmlChar *) "from") && xmlStrEqual(type, (const xmlChar *) "way")) {
-						restriction.fromWay = atoi((const char*) ref);
+						restriction.fromWay = stringToUint((const char*) ref);
 					}
 					if(xmlStrEqual(role, (const xmlChar *) "via") && xmlStrEqual(type, (const xmlChar *) "node")) {
-						restriction.restriction.viaNode = atoi((const char*) ref);
+						restriction.restriction.viaNode = stringToUint((const char*) ref);
 					}
 
 					if(NULL != type) {
@@ -177,7 +178,7 @@ ExtractionWay XMLParser::_ReadXMLWay() {
 
 			if ( depth == childDepth && childType == 15 && xmlStrEqual( childName, ( const xmlChar* ) "way" ) == 1 ) {
 				xmlChar* id = xmlTextReaderGetAttribute( inputReader, ( const xmlChar* ) "id" );
-				way.id = atoi((char*)id);
+				way.id = stringToUint((char*)id);
 				xmlFree(id);
 				xmlFree( childName );
 				break;
@@ -203,7 +204,7 @@ ExtractionWay XMLParser::_ReadXMLWay() {
 			} else if ( xmlStrEqual( childName, ( const xmlChar* ) "nd" ) == 1 ) {
 				xmlChar* ref = xmlTextReaderGetAttribute( inputReader, ( const xmlChar* ) "ref" );
 				if ( ref != NULL ) {
-					way.path.push_back( atoi(( const char* ) ref ) );
+					way.path.push_back( stringToUint(( const char* ) ref ) );
 					xmlFree( ref );
 				}
 			}
@@ -218,17 +219,17 @@ ImportNode XMLParser::_ReadXMLNode() {
 
 	xmlChar* attribute = xmlTextReaderGetAttribute( inputReader, ( const xmlChar* ) "lat" );
 	if ( attribute != NULL ) {
-		node.lat =  static_cast<NodeID>(100000.*atof(( const char* ) attribute ) );
+		node.lat =  static_cast<NodeID>(COORDINATE_PRECISION*atof(( const char* ) attribute ) );
 		xmlFree( attribute );
 	}
 	attribute = xmlTextReaderGetAttribute( inputReader, ( const xmlChar* ) "lon" );
 	if ( attribute != NULL ) {
-		node.lon =  static_cast<NodeID>(100000.*atof(( const char* ) attribute ));
+		node.lon =  static_cast<NodeID>(COORDINATE_PRECISION*atof(( const char* ) attribute ));
 		xmlFree( attribute );
 	}
 	attribute = xmlTextReaderGetAttribute( inputReader, ( const xmlChar* ) "id" );
 	if ( attribute != NULL ) {
-		node.id =  atoi(( const char* ) attribute );
+		node.id =  stringToUint(( const char* ) attribute );
 		xmlFree( attribute );
 	}
 

@@ -21,30 +21,13 @@ or see http://www.gnu.org/licenses/agpl.txt.
 #ifndef TIMINGUTIL_H_
 #define TIMINGUTIL_H_
 
-#include <climits>
-#include <cstdlib>
+#include <boost/timer.hpp>
 
-
-#ifdef _WIN32
- #include <sys/timeb.h>
- #include <sys/types.h>
- #include <winsock.h>
- void gettimeofday(struct timeval* t,void* timezone)
- {       struct _timeb timebuffer;
-        _ftime( &timebuffer );
-        t->tv_sec=timebuffer.time;
-        t->tv_usec=1000*timebuffer.millitm;
- }
-#else
- #include <sys/time.h>
-#endif
+static boost::timer my_timer;
 
 /** Returns a timestamp (now) in seconds (incl. a fractional part). */
 static inline double get_timestamp() {
-    struct timeval tp;
-    gettimeofday(&tp, NULL);
-    return double(tp.tv_sec) + tp.tv_usec / 1000000.;
+    return my_timer.elapsed();
 }
-
 
 #endif /* TIMINGUTIL_H_ */

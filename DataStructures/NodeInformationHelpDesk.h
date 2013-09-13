@@ -21,66 +21,64 @@ or see http://www.gnu.org/licenses/agpl.txt.
 #ifndef NODEINFORMATIONHELPDESK_H_
 #define NODEINFORMATIONHELPDESK_H_
 
-#include <fstream>
-#include <iostream>
-#include <vector>
+#include "QueryNode.h"
+#include "PhantomNodes.h"
+#include "StaticRTree.h"
+#include "../Contractor/EdgeBasedGraphFactory.h"
+#include "../Util/OSRMException.h"
+#include "../typedefs.h"
 
+#include <boost/assert.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/filesystem/fstream.hpp>
 #include <boost/noncopyable.hpp>
 
-#include "../typedefs.h"
-#include "../DataStructures/QueryEdge.h"
-#include "NNGrid.h"
-#include "PhantomNodes.h"
-#include "NodeCoords.h"
+#include <iostream>
+#include <string>
+#include <vector>
 
-class NodeInformationHelpDesk : boost::noncopyable{
+typedef EdgeBasedGraphFactory::EdgeBasedNode RTreeLeaf;
+
+class NodeInformationHelpDesk : boost::noncopyable {
 public:
-    NodeInformationHelpDesk(const char* ramIndexInput, const char* fileIndexInput, const unsigned _numberOfNodes, const unsigned crc) : numberOfNodes(_numberOfNodes), checkSum(crc) {
-        readOnlyGrid = new ReadOnlyGrid(ramIndexInput,fileIndexInput);
-        assert(0 == coordinateVector.size());
+    NodeInformationHelpDesk(
+        const std::string & ramIndexInput,
+        const std::string & fileIndexInput,
+        const std::string & nodes_filename,
+        const std::string & edges_filename,
+        const unsigned number_of_nodes,
+        const unsigned check_sum
+    ) : number_of_nodes(number_of_nodes), check_sum(check_sum)
+    {
+        if ( ramIndexInput.empty() ) {
+            throw OSRMException("no ram index file name in server ini");
+        }
+        if ( fileIndexInput.empty() ) {
+            throw OSRMException("no mem index file name in server ini");
+        }
+        if ( nodes_filename.empty() ) {
+            throw OSRMException("no nodes file name in server ini");
+        }
+        if ( edges_filename.empty() ) {
+            throw OSRMException("no edges file name in server ini");
+        }
+
+        read_only_rtree = new StaticRTree<RTreeLeaf>(
+            ramIndexInput,
+            fileIndexInput
+        );
+        BOOST_ASSERT_MSG(
+            0 == coordinateVector.size(),
+            "Coordinate vector not empty"
+        );
+
+        LoadNodesAndEdges(nodes_filename, edges_filename);
     }
 
     //Todo: Shared memory mechanism
-//    NodeInformationHelpDesk(const char* ramIndexInput, const char* fileIndexInput, const unsigned crc) : checkSum(crc) {
-//        readOnlyGrid = new ReadOnlyGrid(ramIndexInput,fileIndexInput);
-//    }
-
 	~NodeInformationHelpDesk() {
-		delete readOnlyGrid;
+		delete read_only_rtree;
 	}
-	void initNNGrid(std::ifstream& nodesInstream, std::ifstream& edgesInStream) {
-	    DEBUG("Loading node data");
-		NodeInfo b;
-	    while(!nodesInstream.eof()) {
-			nodesInstream.read((char *)&b, sizeof(NodeInfo));
-			coordinateVector.push_back(_Coordinate(b.lat, b.lon));
-		}
-	    std::vector<_Coordinate>(coordinateVector).swap(coordinateVector);
-	    nodesInstream.close();
-
-        DEBUG("Loading edge data");
-        unsigned numberOfOrigEdges(0);
-        edgesInStream.read((char*)&numberOfOrigEdges, sizeof(unsigned));
-        origEdgeData_viaNode.resize(numberOfOrigEdges);
-        origEdgeData_nameID.resize(numberOfOrigEdges);
-        origEdgeData_turnInstruction.resize(numberOfOrigEdges);
-
-        OriginalEdgeData deserialized_originalEdgeData;
-        for(unsigned i = 0; i < numberOfOrigEdges; ++i) {
-        	edgesInStream.read((char*)&(deserialized_originalEdgeData), sizeof(OriginalEdgeData));
-            origEdgeData_viaNode[i] 		= deserialized_originalEdgeData.viaNode;
-            origEdgeData_nameID[i] 			= deserialized_originalEdgeData.nameID;
-            origEdgeData_turnInstruction[i] = deserialized_originalEdgeData.turnInstruction;
-        }
-        edgesInStream.close();
-        DEBUG("Loaded " << numberOfOrigEdges << " orig edges");
-	    DEBUG("Opening NN indices");
-	    readOnlyGrid->OpenIndexFiles();
-	}
-
-//	void initNNGrid() {
-//	    readOnlyGrid->OpenIndexFiles();
-//	}
 
 	inline int getLatitudeOfNode(const unsigned id) const {
 	    const NodeID node = origEdgeData_viaNode.at(id);
@@ -100,38 +98,107 @@ public:
         return origEdgeData_turnInstruction.at(id);
     }
 
-    inline NodeID getNumberOfNodes() const { return numberOfNodes; }
-	inline NodeID getNumberOfNodes2() const { return coordinateVector.size(); }
+    inline NodeID getNumberOfNodes() const {
+        return number_of_nodes;
+    }
 
-	inline bool FindNearestNodeCoordForLatLon(const _Coordinate& coord, _Coordinate& result) const {
-		return readOnlyGrid->FindNearestCoordinateOnEdgeInNodeBasedGraph(coord, result);
-	}
+	inline NodeID getNumberOfNodes2() const {
+        return coordinateVector.size();
+    }
 
-	inline bool FindPhantomNodeForCoordinate( const _Coordinate & location, PhantomNode & resultNode, const unsigned zoomLevel) {
-	    return readOnlyGrid->FindPhantomNodeForCoordinate(location, resultNode, zoomLevel);
-	}
+    inline bool FindNearestNodeCoordForLatLon(
+            const FixedPointCoordinate& input_coordinate,
+            FixedPointCoordinate& result,
+            const unsigned zoom_level = 18
+    ) const {
+        PhantomNode resulting_phantom_node;
+        bool foundNode = FindPhantomNodeForCoordinate(
+            input_coordinate,
+            resulting_phantom_node, zoom_level
+        );
+        result = resulting_phantom_node.location;
+        return foundNode;
+    }
 
-	inline void FindRoutingStarts(const _Coordinate &start, const _Coordinate &target, PhantomNodes & phantomNodes, const unsigned zoomLevel) const {
-		readOnlyGrid->FindRoutingStarts(start, target, phantomNodes, zoomLevel);
-	}
-
-	inline void FindNearestPointOnEdge(const _Coordinate & input, _Coordinate& output){
-	    readOnlyGrid->FindNearestPointOnEdge(input, output);
-	}
+    inline bool FindPhantomNodeForCoordinate(
+            const FixedPointCoordinate & input_coordinate,
+            PhantomNode & resulting_phantom_node,
+            const unsigned zoom_level
+    ) const {
+        return read_only_rtree->FindPhantomNodeForCoordinate(
+                input_coordinate,
+                resulting_phantom_node,
+                zoom_level
+        );
+    }
 
 	inline unsigned GetCheckSum() const {
-	    return checkSum;
+	    return check_sum;
 	}
 
 private:
-	std::vector<_Coordinate> coordinateVector;
+    void LoadNodesAndEdges(
+        const std::string & nodes_filename,
+        const std::string & edges_filename
+    ) {
+        boost::filesystem::path nodes_file(nodes_filename);
+        if ( !boost::filesystem::exists( nodes_file ) ) {
+            throw OSRMException("nodes file does not exist");
+        }
+        if ( 0 == boost::filesystem::file_size( nodes_file ) ) {
+            throw OSRMException("nodes file is empty");
+        }
+
+        boost::filesystem::path edges_file(edges_filename);
+        if ( !boost::filesystem::exists( edges_file ) ) {
+            throw OSRMException("edges file does not exist");
+        }
+        if ( 0 == boost::filesystem::file_size( edges_file ) ) {
+            throw OSRMException("edges file is empty");
+        }
+
+        boost::filesystem::ifstream nodes_input_stream(nodes_file, std::ios::binary);
+        boost::filesystem::ifstream edges_input_stream(edges_file, std::ios::binary);
+
+        SimpleLogger().Write(logDEBUG) << "Loading node data";
+        NodeInfo b;
+        while(!nodes_input_stream.eof()) {
+            nodes_input_stream.read((char *)&b, sizeof(NodeInfo));
+            coordinateVector.push_back(FixedPointCoordinate(b.lat, b.lon));
+        }
+        std::vector<FixedPointCoordinate>(coordinateVector).swap(coordinateVector);
+        nodes_input_stream.close();
+
+        SimpleLogger().Write(logDEBUG) << "Loading edge data";
+        unsigned numberOfOrigEdges(0);
+        edges_input_stream.read((char*)&numberOfOrigEdges, sizeof(unsigned));
+        origEdgeData_viaNode.resize(numberOfOrigEdges);
+        origEdgeData_nameID.resize(numberOfOrigEdges);
+        origEdgeData_turnInstruction.resize(numberOfOrigEdges);
+
+        OriginalEdgeData deserialized_originalEdgeData;
+        for(unsigned i = 0; i < numberOfOrigEdges; ++i) {
+            edges_input_stream.read(
+                (char*)&(deserialized_originalEdgeData),
+                sizeof(OriginalEdgeData)
+            );
+            origEdgeData_viaNode[i] = deserialized_originalEdgeData.viaNode;
+            origEdgeData_nameID[i]  = deserialized_originalEdgeData.nameID;
+            origEdgeData_turnInstruction[i] = deserialized_originalEdgeData.turnInstruction;
+        }
+        edges_input_stream.close();
+        SimpleLogger().Write(logDEBUG) << "Loaded " << numberOfOrigEdges << " orig edges";
+        SimpleLogger().Write(logDEBUG) << "Opening NN indices";
+    }
+
+	std::vector<FixedPointCoordinate> coordinateVector;
 	std::vector<NodeID> origEdgeData_viaNode;
 	std::vector<unsigned> origEdgeData_nameID;
 	std::vector<TurnInstruction> origEdgeData_turnInstruction;
 
-	ReadOnlyGrid * readOnlyGrid;
-	const unsigned numberOfNodes;
-	const unsigned checkSum;
+	StaticRTree<EdgeBasedGraphFactory::EdgeBasedNode> * read_only_rtree;
+	const unsigned number_of_nodes;
+	const unsigned check_sum;
 };
 
 #endif /*NODEINFORMATIONHELPDESK_H_*/

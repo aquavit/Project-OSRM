@@ -18,105 +18,132 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 or see http://www.gnu.org/licenses/agpl.txt.
  */
 
-#include <cstdlib>
-#include <iostream>
-#include <fstream>
-#include <string>
-
-#include "typedefs.h"
 #include "Extractor/ExtractorCallbacks.h"
 #include "Extractor/ExtractionContainers.h"
 #include "Extractor/ScriptingEnvironment.h"
 #include "Extractor/PBFParser.h"
 #include "Extractor/XMLParser.h"
-#include "Util/BaseConfiguration.h"
+#include "Util/IniFile.h"
 #include "Util/InputFileUtil.h"
 #include "Util/MachineInfo.h"
 #include "Util/OpenMPWrapper.h"
+#include "Util/OSRMException.h"
+#include "Util/SimpleLogger.h"
 #include "Util/StringUtil.h"
+#include "Util/UUID.h"
+#include "typedefs.h"
 
-typedef BaseConfiguration ExtractorConfiguration;
+#include <cstdlib>
+
+#include <iostream>
+#include <fstream>
+#include <string>
 
 ExtractorCallbacks * extractCallBacks;
+UUID uuid;
 
 int main (int argc, char *argv[]) {
-    double earliestTime = get_timestamp();
-
-    if(argc < 2) {
-        ERR("usage: \n" << argv[0] << " <file.osm/.osm.bz2/.osm.pbf> [<profile.lua>]");
-    }
-
-    /*** Setup Scripting Environment ***/
-    ScriptingEnvironment scriptingEnvironment((argc > 2 ? argv[2] : "profile.lua"));
-
-    unsigned numberOfThreads = omp_get_num_procs();
-    if(testDataFile("extractor.ini")) {
-        ExtractorConfiguration extractorConfig("extractor.ini");
-        unsigned rawNumber = stringToInt(extractorConfig.GetParameter("Threads"));
-        if( rawNumber != 0 && rawNumber <= numberOfThreads)
-            numberOfThreads = rawNumber;
-    }
-    omp_set_num_threads(numberOfThreads);
-
-    INFO("extracting data from input file " << argv[1]);
-    bool isPBF(false);
-    std::string outputFileName(argv[1]);
-    std::string restrictionsFileName(argv[1]);
-    std::string::size_type pos = outputFileName.find(".osm.bz2");
-    if(pos==std::string::npos) {
-        pos = outputFileName.find(".osm.pbf");
-        if(pos!=std::string::npos) {
-            isPBF = true;
+    try {
+        LogPolicy::GetInstance().Unmute();
+        double startup_time = get_timestamp();
+        if(argc < 2) {
+            SimpleLogger().Write(logWARNING) <<
+                "usage: \n" <<
+                argv[0] <<
+                " <file.osm/.osm.bz2/.osm.pbf> [<profile.lua>]";
+            return -1;
         }
-    }
-    if(pos!=std::string::npos) {
-        outputFileName.replace(pos, 8, ".osrm");
-        restrictionsFileName.replace(pos, 8, ".osrm.restrictions");
-    } else {
-        pos=outputFileName.find(".osm");
+
+        /*** Setup Scripting Environment ***/
+        ScriptingEnvironment scriptingEnvironment((argc > 2 ? argv[2] : "profile.lua"));
+
+        unsigned number_of_threads = omp_get_num_procs();
+
+        if(testDataFile("extractor.ini")) {
+            IniFile extractorConfig("extractor.ini");
+            unsigned rawNumber = stringToInt(extractorConfig.GetParameter("Threads"));
+            if( rawNumber != 0 && rawNumber <= number_of_threads) {
+                number_of_threads = rawNumber;
+            }
+        }
+        omp_set_num_threads(number_of_threads);
+
+        SimpleLogger().Write() << "extracting data from input file " << argv[1];
+        bool file_has_pbf_format(false);
+        std::string output_file_name(argv[1]);
+        std::string restrictionsFileName(argv[1]);
+        std::string::size_type pos = output_file_name.find(".osm.bz2");
+        if(pos==std::string::npos) {
+            pos = output_file_name.find(".osm.pbf");
+            if(pos!=std::string::npos) {
+                file_has_pbf_format = true;
+            }
+        }
+        if(pos==std::string::npos) {
+            pos = output_file_name.find(".pbf");
+            if(pos!=std::string::npos) {
+                file_has_pbf_format = true;
+            }
+        }
         if(pos!=std::string::npos) {
-            outputFileName.replace(pos, 5, ".osrm");
-            restrictionsFileName.replace(pos, 5, ".osrm.restrictions");
+            output_file_name.replace(pos, 8, ".osrm");
+            restrictionsFileName.replace(pos, 8, ".osrm.restrictions");
         } else {
-            outputFileName.append(".osrm");
-            restrictionsFileName.append(".osrm.restrictions");
+            pos=output_file_name.find(".osm");
+            if(pos!=std::string::npos) {
+                output_file_name.replace(pos, 5, ".osrm");
+                restrictionsFileName.replace(pos, 5, ".osrm.restrictions");
+            } else {
+                output_file_name.append(".osrm");
+                restrictionsFileName.append(".osrm.restrictions");
+            }
         }
+
+        unsigned amountOfRAM = 1;
+        unsigned installedRAM = GetPhysicalmemory();
+        if(installedRAM < 2048264) {
+            SimpleLogger().Write(logWARNING) << "Machine has less than 2GB RAM.";
+        }
+
+        StringMap stringMap;
+        ExtractionContainers externalMemory;
+
+        stringMap[""] = 0;
+        extractCallBacks = new ExtractorCallbacks(&externalMemory, &stringMap);
+        BaseParser* parser;
+        if(file_has_pbf_format) {
+            parser = new PBFParser(argv[1], extractCallBacks, scriptingEnvironment);
+        } else {
+            parser = new XMLParser(argv[1], extractCallBacks, scriptingEnvironment);
+        }
+
+        if(!parser->ReadHeader()) {
+            throw OSRMException("Parser not initialized!");
+        }
+        SimpleLogger().Write() << "Parsing in progress..";
+        double parsing_start_time = get_timestamp();
+        parser->Parse();
+        SimpleLogger().Write() << "Parsing finished after " <<
+            (get_timestamp() - parsing_start_time) <<
+            " seconds";
+
+        externalMemory.PrepareData(output_file_name, restrictionsFileName, amountOfRAM);
+
+        delete parser;
+        delete extractCallBacks;
+
+        SimpleLogger().Write() <<
+            "extraction finished after " << get_timestamp() - startup_time <<
+            "s";
+
+         SimpleLogger().Write() << "\nRun:\n./osrm-prepare " <<
+            output_file_name <<
+            " " <<
+            restrictionsFileName <<
+            std::endl;
+    } catch(std::exception & e) {
+        SimpleLogger().Write(logWARNING) << "unhandled exception: " << e.what();
+        return -1;
     }
-
-    unsigned amountOfRAM = 1;
-    unsigned installedRAM = GetPhysicalmemory(); 
-    if(installedRAM < 2048264) {
-        WARN("Machine has less than 2GB RAM.");
-    }
-	
-    StringMap stringMap;
-    ExtractionContainers externalMemory;
-
-    stringMap[""] = 0;
-    extractCallBacks = new ExtractorCallbacks(&externalMemory, &stringMap);
-    BaseParser* parser;
-    if(isPBF) {
-        parser = new PBFParser(argv[1], extractCallBacks, scriptingEnvironment);
-    } else {
-        parser = new XMLParser(argv[1], extractCallBacks, scriptingEnvironment);
-    }
-    
-    if(!parser->ReadHeader()) {
-        ERR("Parser not initialized!");
-    }
-    INFO("Parsing in progress..");
-    double time = get_timestamp();
-    parser->Parse();
-    INFO("Parsing finished after " << get_timestamp() - time << " seconds");
-
-    externalMemory.PrepareData(outputFileName, restrictionsFileName, amountOfRAM);
-
-    stringMap.clear();
-    delete parser;
-    delete extractCallBacks;
-    INFO("finished after " << get_timestamp() - earliestTime << "s");
-
-    std::cout << "\nRun:\n"
-                   "./osrm-prepare " << outputFileName << " " << restrictionsFileName << std::endl;
     return 0;
 }

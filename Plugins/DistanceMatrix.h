@@ -21,6 +21,8 @@ or see http://www.gnu.org/licenses/agpl.txt.
 #ifndef DISTANCEMATRIXPLUGIN_H_
 #define DISTANCEMATRIXPLUGIN_H_
 
+
+
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
@@ -28,22 +30,19 @@ or see http://www.gnu.org/licenses/agpl.txt.
 #include <vector>
 
 #include "BasePlugin.h"
-#include "RouteParameters.h"
 
 #include "../Algorithms/ObjectToBase64.h"
-
-#include "../Descriptors/BaseDescriptor.h"
-#include "../Descriptors/GPXDescriptor.h"
-#include "../Descriptors/JSONDescriptor.h"
-
 #include "../DataStructures/HashTable.h"
 #include "../DataStructures/QueryEdge.h"
 #include "../DataStructures/StaticGraph.h"
 #include "../DataStructures/SearchEngine.h"
-
+#include "../Descriptors/BaseDescriptor.h"
+#include "../Descriptors/GPXDescriptor.h"
+#include "../Descriptors/JSONDescriptor.h"
+#include "../Server/DataStructures/QueryObjectsStorage.h"
+#include "../Util/SimpleLogger.h"
 #include "../Util/StringUtil.h"
 
-#include "../Server/DataStructures/QueryObjectsStorage.h"
 
 class DistanceMatrixPlugin : public BasePlugin {
 private:
@@ -51,26 +50,26 @@ private:
     std::vector<std::string> & names;
     StaticGraph<QueryEdge::EdgeData> * graph;
     HashTable<std::string, unsigned> descriptorTable;
-    std::string pluginDescriptorString;
-    SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > * searchEngine;
+    SearchEngine* searchEngine;
+    std::string descriptor_string;
 public:
 
-    DistanceMatrixPlugin(QueryObjectsStorage * objects, std::string psd = "distmatrix") : names(objects->names), pluginDescriptorString(psd) {
+    DistanceMatrixPlugin(QueryObjectsStorage * objects) : names(objects->names), descriptor_string("distmatrix") {
         nodeHelpDesk = objects->nodeHelpDesk;
         graph = objects->graph;
 
-        searchEngine = new SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> >(graph, nodeHelpDesk, names);
+        searchEngine = new SearchEngine(graph, nodeHelpDesk, names);
 
-        descriptorTable.Set("", 0); //default descriptor
-        descriptorTable.Set("json", 0);
-        descriptorTable.Set("gpx", 1);
+        descriptorTable.insert(std::make_pair(""    , 0));
+        descriptorTable.insert(std::make_pair("json", 0));
+        descriptorTable.insert(std::make_pair("gpx", 1));
     }
 
     virtual ~DistanceMatrixPlugin() {
         delete searchEngine;
     }
 
-    std::string GetDescriptor() const { return pluginDescriptorString; }
+    const std::string& GetDescriptor() const { return descriptor_string; }
     std::string GetVersionString() const { return std::string("0.3 (DL)"); }
     void HandleRequest(const RouteParameters & routeParameters, http::Reply& reply) {
         //check number of parameters
@@ -94,7 +93,7 @@ public:
         for(unsigned i = 0; i < rawRoute.rawViaNodeCoordinates.size(); ++i) {
             if(checksumOK && i < routeParameters.hints.size() && "" != routeParameters.hints[i]) {
 //                INFO("Decoding hint: " << routeParameters.hints[i] << " for location index " << i);
-                DecodeObjectFromBase64(phantomNodeVector[i], routeParameters.hints[i]);
+                DecodeObjectFromBase64(routeParameters.hints[i], phantomNodeVector[i]);
                 if(phantomNodeVector[i].isValid(nodeHelpDesk->getNumberOfNodes())) {
 //                    INFO("Decoded hint " << i << " successfully");
                     continue;
@@ -126,25 +125,17 @@ public:
                 rawRouteLocal.segmentEndCoordinates.clear();
                 rawRouteLocal.segmentEndCoordinates.push_back(phantomNodesPair);
 
-        //        if( ( routeParameters.alternateRoute ) && (1 == rawRoute.segmentEndCoordinates.size()) ) {
-        //            INFO("Checking for alternative paths");
-        //            searchEngine->alternativePaths(rawRoute.segmentEndCoordinates[0],  rawRoute);
-
-        //        } else {
                 searchEngine->shortestPath(rawRouteLocal.segmentEndCoordinates, rawRouteLocal);
-        //        }
+
                 if(INT_MAX == rawRouteLocal.lengthOfShortestPath ) {
-                    DEBUG( "Error occurred, single path not found" );
+                    SimpleLogger().Write(logDEBUG) << "Error occurred, single path not found";
                 }
                 
                 PhantomNodes phantomNodes;
                 phantomNodes.startPhantom = rawRouteLocal.segmentEndCoordinates[0].startPhantom;
-                INFO("Start location: " << phantomNodes.startPhantom.location)
                 phantomNodes.targetPhantom = rawRouteLocal.segmentEndCoordinates[rawRouteLocal.segmentEndCoordinates.size()-1].targetPhantom;
-                INFO("TargetLocation: " << phantomNodes.targetPhantom.location);
-                INFO("Number of segments: " << rawRouteLocal.segmentEndCoordinates.size());
 
-                BaseDescriptor<SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > > *desc;
+                BaseDescriptor *desc;
                 _DescriptorConfig descriptorConfig;
                 descriptorConfig.z = routeParameters.zoomLevel;
                 descriptorConfig.instructions = routeParameters.printInstructions;
@@ -154,15 +145,16 @@ public:
 
                 switch(descriptorType){
                 case 0:
-                    desc = new JSONDescriptor<SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > >();
-
+//                    desc = new JSONDescriptor<SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > >();
+                    desc = new JSONDescriptor();
                     break;
                 case 1:
-                    desc = new GPXDescriptor<SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > >();
-
+//                    desc = new GPXDescriptor<SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > >();
+                    desc = new GPXDescriptor();
                     break;
                 default:
-                    desc = new JSONDescriptor<SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > >();
+//                    desc = new JSONDescriptor<SearchEngine<QueryEdge::EdgeData, StaticGraph<QueryEdge::EdgeData> > >();
+                    desc = new JSONDescriptor();
 
                     break;
                 }
@@ -224,13 +216,6 @@ public:
         }
 
         return;
-    }
-private:
-    inline bool checkCoord(const _Coordinate & c) {
-        if(c.lat > 90*100000 || c.lat < -90*100000 || c.lon > 180*100000 || c.lon <-180*100000) {
-            return false;
-        }
-        return true;
     }
 };
 

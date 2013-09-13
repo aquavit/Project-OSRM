@@ -17,34 +17,39 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 or see http://www.gnu.org/licenses/agpl.txt.
  */
-#ifdef __linux__
-#include <sys/mman.h>
-#endif
-#include <iostream>
-#include <signal.h>
 
-#include <boost/thread.hpp>
-#include <boost/bind.hpp>
 
-#include "Server/DataStructures/QueryObjectsStorage.h"
-#include "Server/ServerConfiguration.h"
-#include "Server/ServerFactory.h"
+#include "Library/OSRM.h"
 
+<<<<<<< HEAD
 #include "Plugins/HelloWorldPlugin.h"
 #include "Plugins/LocatePlugin.h"
 #include "Plugins/NearestPlugin.h"
 #include "Plugins/TimestampPlugin.h"
 #include "Plugins/ViaRoutePlugin.h"
 #include "Plugins/DistanceMatrix.h"
+=======
+#include "Server/ServerFactory.h"
+>>>>>>> upstream/master
 
+#include "Util/IniFile.h"
 #include "Util/InputFileUtil.h"
 #include "Util/OpenMPWrapper.h"
+#include "Util/SimpleLogger.h"
+#include "Util/UUID.h"
 
-#ifndef _WIN32
+#ifdef __linux__
 #include "Util/LinuxStackTrace.h"
+#include <sys/mman.h>
 #endif
 
-typedef http::RequestHandler RequestHandler;
+#include <signal.h>
+
+#include <boost/bind.hpp>
+#include <boost/date_time.hpp>
+#include <boost/thread.hpp>
+
+#include <iostream>
 
 #ifdef _WIN32
 boost::function0<void> console_ctrl_function;
@@ -65,12 +70,15 @@ BOOL WINAPI console_ctrl_handler(DWORD ctrl_type)
 }
 #endif
 
-int main (int argc, char * argv[0]) {
+int main (int argc, char * argv[]) {
+    try {
+        LogPolicy::GetInstance().Unmute();
 #ifdef __linux__
-    if(!mlockall(MCL_CURRENT | MCL_FUTURE))
-        WARN("Process " << argv[0] << "could not be locked to RAM");
+        if(!mlockall(MCL_CURRENT | MCL_FUTURE)) {
+            SimpleLogger().Write(logWARNING) << "Process " << argv[0] << "could not be locked to RAM";
+        }
 #endif
-#ifndef _WIN32
+#ifdef __linux__
 
     installCrashHandler(argv[0]);
 #endif
@@ -82,8 +90,10 @@ int main (int argc, char * argv[0]) {
         //exit(-1);
     //}
 
-    try {
-        std::cout << std::endl << "[server] starting up engines, saved at " << __TIMESTAMP__ << std::endl;
+        //std::cout << "fingerprint: " << UUID::GetInstance().GetUUID() << std::endl;
+
+        SimpleLogger().Write() <<
+            "starting up engines, compiled at " << __DATE__ << ", " __TIME__;
 
 #ifndef _WIN32
         int sig = 0;
@@ -93,28 +103,11 @@ int main (int argc, char * argv[0]) {
         pthread_sigmask(SIG_BLOCK, &new_mask, &old_mask);
 #endif
 
-        ServerConfiguration serverConfig((argc > 1 ? argv[1] : "server.ini"));
+        IniFile serverConfig((argc > 1 ? argv[1] : "server.ini"));
+        OSRM routing_machine((argc > 1 ? argv[1] : "server.ini"));
+
         Server * s = ServerFactory::CreateServer(serverConfig);
-        RequestHandler & h = s->GetRequestHandlerPtr();
-
-        QueryObjectsStorage * objects = new QueryObjectsStorage(serverConfig.GetParameter("hsgrData"),
-                serverConfig.GetParameter("ramIndex"),
-                serverConfig.GetParameter("fileIndex"),
-                serverConfig.GetParameter("nodesData"),
-                serverConfig.GetParameter("edgesData"),
-                serverConfig.GetParameter("namesData"),
-                serverConfig.GetParameter("timestamp")
-                );
-
-        h.RegisterPlugin(new HelloWorldPlugin());
-
-        h.RegisterPlugin(new LocatePlugin(objects));
-
-        h.RegisterPlugin(new NearestPlugin(objects));
-
-        h.RegisterPlugin(new TimestampPlugin(objects));
-
-        h.RegisterPlugin(new ViaRoutePlugin(objects));
+        s->GetRequestHandlerPtr().RegisterRoutingMachine(&routing_machine);
 
         h.RegisterPlugin(new DistanceMatrixPlugin(objects));
 
@@ -141,10 +134,13 @@ int main (int argc, char * argv[0]) {
         std::cout << "[server] initiating shutdown" << std::endl;
         s->Stop();
         std::cout << "[server] stopping threads" << std::endl;
-        t.join();
+
+        if(!t.timed_join(boost::posix_time::seconds(2))) {
+       	    SimpleLogger().Write(logDEBUG) << "Threads did not finish within 2 seconds. Hard abort!";
+        }
+
         std::cout << "[server] freeing objects" << std::endl;
         delete s;
-        delete objects;
         std::cout << "[server] shutdown completed" << std::endl;
     } catch (std::exception& e) {
         std::cerr << "[fatal error] exception: " << e.what() << std::endl;

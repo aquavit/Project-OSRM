@@ -21,11 +21,13 @@
 #ifndef EXTRACTIONCONTAINERS_H_
 #define EXTRACTIONCONTAINERS_H_
 
+#include "ExtractorStructs.h"
+#include "../Util/SimpleLogger.h"
+#include "../Util/TimingUtil.h"
+#include "../Util/UUID.h"
+
 #include <boost/foreach.hpp>
 #include <stxxl.h>
-
-#include "ExtractorStructs.h"
-#include "../DataStructures/TimingUtil.h"
 
 class ExtractionContainers {
 public:
@@ -38,14 +40,10 @@ public:
 
     ExtractionContainers() {
         //Check if another instance of stxxl is already running or if there is a general problem
-        try {
-            stxxl::vector<unsigned> testForRunningInstance;
-        } catch(std::exception & e) {
-            ERR("Could not instantiate STXXL layer." << std::endl << e.what());
-        }
-
+        stxxl::vector<unsigned> testForRunningInstance;
         nameVector.push_back("");
     }
+
     virtual ~ExtractionContainers() {
         usedNodeIDs.clear();
         allNodes.clear();
@@ -55,7 +53,7 @@ public:
         wayStartEndVector.clear();
     }
 
-    void PrepareData( const std::string & outputFileName, const std::string restrictionsFileName, const unsigned amountOfRAM);
+    void PrepareData( const std::string & output_file_name, const std::string restrictionsFileName, const unsigned amountOfRAM);
 
     STXXLNodeIDVector           usedNodeIDs;
     STXXLNodeVector             allNodes;
@@ -63,7 +61,7 @@ public:
     STXXLStringVector           nameVector;
     STXXLRestrictionsVector     restrictionsVector;
     STXXLWayIDStartEndVector    wayStartEndVector;
-
+    const UUID uuid;
 };
 
 #endif /* EXTRACTIONCONTAINERS_H_ */
