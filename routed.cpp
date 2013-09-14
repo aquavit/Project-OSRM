@@ -21,16 +21,7 @@ or see http://www.gnu.org/licenses/agpl.txt.
 
 #include "Library/OSRM.h"
 
-<<<<<<< HEAD
-#include "Plugins/HelloWorldPlugin.h"
-#include "Plugins/LocatePlugin.h"
-#include "Plugins/NearestPlugin.h"
-#include "Plugins/TimestampPlugin.h"
-#include "Plugins/ViaRoutePlugin.h"
-#include "Plugins/DistanceMatrix.h"
-=======
 #include "Server/ServerFactory.h"
->>>>>>> upstream/master
 
 #include "Util/IniFile.h"
 #include "Util/InputFileUtil.h"
@@ -108,8 +99,6 @@ int main (int argc, char * argv[]) {
 
         Server * s = ServerFactory::CreateServer(serverConfig);
         s->GetRequestHandlerPtr().RegisterRoutingMachine(&routing_machine);
-
-        h.RegisterPlugin(new DistanceMatrixPlugin(objects));
 
         boost::thread t(boost::bind(&Server::Run, s));
 
